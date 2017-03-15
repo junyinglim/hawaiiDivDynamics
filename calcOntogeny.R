@@ -1,10 +1,12 @@
 ## DIVERSITY DYNAMICS OF THE HAWAIIAN ISLANDS
-# Authors: Jun Ying Lim & Charles Marahall
+# Authors: Jun Ying Lim & Charles Marshall
 # Last modified: 27 May 2016
 
 ## DIRECTORIES =============================================
-main.dir <- "~/Dropbox/Hawaii Diversity Dynamics/analyses"
-data.dir <- file.path(main.dir, "data")
+stem.dir <- "~/Dropbox/Hawaii Diversity Dynamics/"
+data.dir <- file.path(stem.dir, "raw_data")
+main.dir <- file.path(stem.dir, "analyses")
+output.dir <- file.path(main.dir, "results")
 figure.dir <- file.path(main.dir, "figures")
 
 ## PACKAGES =============================================
@@ -50,6 +52,7 @@ niihau_currH <- coneheight(theta = 5, A = niihau_currA * 10^6) # niihau is a col
 
 ## MAXIMUM ISLAND HEIGHTS  =============================================
 # All numbers from Carson & Clague (1995) In: Wagner & Funk (1995))
+# Estimated by adding deepest break-in slope with current height
 hawaii_maxH <- 4205 # hawaii (mauna kea)  ## isn't it 4600?
 emau_maxH <- 5000 # east maui (haleakala)  
 wmau_maxH <- 3400 # west maui (puukukui)
@@ -63,68 +66,96 @@ kauai_maxH <- 2600 # kauai (kawaikini)
 niihau_maxH <- 1400 # niihau (paniau)
 
 # Calculate maximum areas of island complexes
-hawaii_maxA <- onecone(maxH = hawaii_maxH,
-                       currH = hawaii_currH,
-                       currA = hawaii_currA)
-
+hawaii_maxA <- onecone(maxH = hawaii_maxH, currH = hawaii_currH, currA = hawaii_currA)
 maui_maxA <- 13500 # Price & Elliot-Fisk (2004) gives a high stand value of 14000 km2. We deducted 500 for Penguin Bank as we don't believe it was ever high enough
 # NOTE: we also calculated them as individual cones and summed them up - you get virtually identical results
 
-oahu_maxA <- twocone(maxHa = kool_maxH,
-                     maxHb = waia_maxH,
-                     currHa = kool_currH,
-                     currHb = waia_currH,
+oahu_maxA <- twocone(maxHa = kool_maxH, maxHb = waia_maxH,
+                     currHa = kool_currH, currHb = waia_currH,
                      currA = oahu_currA) #+ 
-              #conearea(theta = 5, H = 1000) # Ka'ena
+              #conearea(theta = 5, H = 1000) # Ka'ena (excl. because was never high enough to catch rainfall)
+
+# Alternate method that calculates area from maximum height alone (and assuming slope of 5.5 deg)
+# Assumes all volcanic islands are essentailly cones and does not account for shield overlap
+oahu_maxA_small <- pi * (kool_maxH / tan(5.5*2*pi/360))^2 / 1E6 + 
+                   pi * (waia_maxH / tan(5.5*2*pi/360))^2 / 1E6
+
+# Alternate method that assumes a steeper height of repose for oahu and kauai
+repose_ratio <- tan(7 * 2 * pi / 360) / tan(5.5*2*pi/360)
+oahu_maxA_large <- twocone(maxHa = kool_maxH * repose_ratio,
+                           maxHb = waia_maxH * repose_ratio,
+                           currHa = kool_currH,
+                           currHb = waia_currH,
+                           currA = oahu_currA)
 
 kauai_maxA <- onecone(maxH = kauai_maxH,
                       currH = kauai_currH,
-                      currA = kauai_currA) #+
+                      currA = kauai_currA)
               #onecone(maxH = niihau_maxH,
               #        currH = niihau_currH,
-              #        currA = niihau_currA) # Ni'ihau
+              #        currA = niihau_currA) # Ni'ihau (excl. because Niihau was never connected to Kauai subaerially)
+
+# Alternate method that calculates area from maximum height alone (and assuming slope of 5.5 deg)
+kauai_maxA_small <- pi * (kauai_maxH / tan(5.5*2*pi/360))^2 / 1E6 
+
+# Alternate method that assumes different angle of repose
+repose_ratio <- tan(7 * 2 * pi / 360) / tan(5.5*2*pi/360)
+kauai_maxA_large <- onecone(maxH = kauai_maxH * repose_ratio,
+                            currH = kauai_currH,
+                            currA = kauai_currA)
 
 # Adjust maximum area with decay rate 
 # Wai'anae will have lost area when Ko'olau is at max area
 waia_currA <- oahu_currA * waia_currH^2 / (waia_currH^2 + kool_currH^2) # calculate current area of wai'anae range
-waia_maxA <- onecone(currA = waia_currA, maxH = waia_maxH, currH = waia_currH) # calculate maximum area of wai'ane
+
+waia_maxA <- onecone(currA = waia_currA, maxH = waia_maxH, currH = waia_currH) # calculate maximum area of wai'ane using height ratio method (original method)
+waia_maxA_large <- onecone(currA = waia_currA, maxH = waia_maxH * repose_ratio, currH = waia_currH) # calculate maximum area of wai'ane using height ratio method (original method)
+waia_maxA_small <- pi * (waia_maxH / tan(5.5*2*pi/360))^2 / 1E6
 
 # Uncertainty in times
 # Assuming maximum dates
-waia_ArealDecayRate <- (waia_maxA - waia_currA) / 3.55 
-waia_lag <- 3.55 - 1.8 # time between max area achieved by wai'anae vs. ko'olau
-oahu_adjA_old <- waia_ArealDecayRate * waia_lag
-oahu_maxA_old <- oahu_maxA - oahu_adjA_old
+adjOahuArea <- function(waia_maxA, oahu_maxA){
+  waia_ArealDecayRate <- (waia_maxA - waia_currA) / 3.55 
+  waia_lag <- 3.55 - 1.8 # time between max area achieved by wai'anae vs. ko'olau
+  oahu_adjA_old <- waia_ArealDecayRate * waia_lag
+  oahu_maxA_old <- oahu_maxA - oahu_adjA_old
+  
+  waia_ArealDecayRate <- (waia_maxA - waia_currA) / 3.06
+  waia_lag <- 3.06 - 0.8 # time between max area achieved by wai'anae vs. ko'olau
+  oahu_adjA_young <- waia_ArealDecayRate * waia_lag
+  oahu_maxA_young <- oahu_maxA - oahu_adjA_young
+  
+  # Assuming mean dates
+  waia_ArealDecayRate <- (waia_maxA - waia_currA) / 3.305
+  waia_lag <- 3.305 - 1.3 # time between max area achieved by wai'anae vs. ko'olau
+  oahu_adjA_mean <- waia_ArealDecayRate * waia_lag
+  oahu_maxA_mean <- oahu_maxA - oahu_adjA_mean
+  
+  return(c(oahu_maxA_mean, oahu_maxA_young, oahu_maxA_old))
+}
 
-# Assuming minimum dates
-waia_ArealDecayRate <- (waia_maxA - waia_currA) / 3.06
-waia_lag <- 3.06 - 0.8 # time between max area achieved by wai'anae vs. ko'olau
-oahu_adjA_young <- waia_ArealDecayRate * waia_lag
-oahu_maxA_young <- oahu_maxA - oahu_adjA_young
-
-# Assuming mean dates
-waia_ArealDecayRate <- (waia_maxA - waia_currA) / 3.305
-waia_lag <- 3.305 - 1.3 # time between max area achieved by wai'anae vs. ko'olau
-oahu_adjA_mean <- waia_ArealDecayRate * waia_lag
-oahu_maxA_mean <- oahu_maxA - oahu_adjA_mean
-
-
-# Ni'ihau will have lost area when Kauai is at max area (now deprecated, kauai and niihau no longer connected)
-# niihau_maxA <- onecone(currA = niihau_currA, maxH = niihau_maxH, currH = niihau_currH)
-# niihau_ArealDecayRate <- (niihau_maxA - niihau_currA) / 5
-# niihau_lag <- 5 - 4
-# kauai_adjA <- niihau_ArealDecayRate * niihau_lag
-# kauai_maxA <- kauai_maxA - kauai_adjA
+oahu_maxA_adj <- adjOahuArea(waia_maxA = waia_maxA, oahu_maxA = oahu_maxA)
+oahu_maxA_large_adj <- adjOahuArea(waia_maxA = waia_maxA_large, oahu_maxA = oahu_maxA_large)
+oahu_maxA_small_adj <- adjOahuArea(waia_maxA = waia_maxA_small, oahu_maxA = oahu_maxA_small)
 
 # Combine data
-complex_maxA <- c(hawaii_maxA, maui_maxA, oahu_maxA_mean, kauai_maxA)
-complex_maxA_yngOa <- c(hawaii_maxA, maui_maxA, oahu_maxA_young, kauai_maxA)
-complex_maxA_oldOa <- c(hawaii_maxA, maui_maxA, oahu_maxA_old, kauai_maxA)
+complex_maxA <- c(hawaii_maxA, maui_maxA, oahu_maxA_adj[1], kauai_maxA)
+complex_maxA_yngOa <- c(hawaii_maxA, maui_maxA, oahu_maxA_adj[2], kauai_maxA)
+complex_maxA_oldOa <- c(hawaii_maxA, maui_maxA, oahu_maxA_adj[3], kauai_maxA)
+
+complex_maxA_large <- c(hawaii_maxA, maui_maxA, oahu_maxA_large_adj[1], kauai_maxA_large)
+complex_maxA_large_yngOa <- c(hawaii_maxA, maui_maxA, oahu_maxA_large_adj[2], kauai_maxA_large)
+complex_maxA_large_oldOa <- c(hawaii_maxA, maui_maxA, oahu_maxA_large_adj[3], kauai_maxA_large)
+
+complex_maxA_small <- c(hawaii_maxA, maui_maxA, oahu_maxA_small_adj[1], kauai_maxA_small)
+complex_maxA_small_yngOa <- c(hawaii_maxA, maui_maxA, oahu_maxA_small_adj[2], kauai_maxA_small)
+complex_maxA_small_oldOa <- c(hawaii_maxA, maui_maxA, oahu_maxA_small_adj[3], kauai_maxA_small)
+
 
 complex_currA <- c(hawaii_currA,
                    sum(c(maui_currA, kaho_currA, lanai_currA, molo_currA)),
                    oahu_currA,
-                   sum(c(kauai_currA, niihau_currA)))
+                   kauai_currA)
 
 islTimes <- data.frame(complex_id = c("Hawaii", "Maui Nui", "Oahu", "Kauai"),
                        currA = complex_currA,
@@ -166,17 +197,20 @@ islTimes$t2_lG_yngIsl <- islTimes$t_maxA_min
 islTimes$t1_mean <- islTimes$t_habitable_mean - islTimes$t_maxA_mean
 islTimes$t2_mean <- islTimes$t_maxA_mean
 
+# Add island areas
+
+## ALTERNATIVE AREAS
+islTimes_large <- islTimes 
+islTimes_large$maxA <- complex_maxA_large
+islTimes_large$maxA_yngOa <- complex_maxA_large_yngOa
+islTimes_large$maxA_oldOa <- complex_maxA_large_oldOa
+
+islTimes_small <- islTimes 
+islTimes_small$maxA <- complex_maxA_small
+islTimes_small$maxA_yngOa <- complex_maxA_small_yngOa
+islTimes_small$maxA_oldOa <- complex_maxA_small_oldOa
+
 # Export data
-write.csv(islTimes, file.path(data.dir, "islTimes.csv"), row.names = FALSE)
-
-
-# ggplot(data = islTimes) +
-#   geom_segment(aes(y = 0, yend = maxA, x = t_habitable_max, xend = t_maxA_max, colour = complex_id)) +
-#   geom_segment(aes(y = maxA, yend = currA, x = t_maxA_max, xend = 0, colour = complex_id)) +
-#   geom_segment(aes(y = 0, yend = maxA, x = t_habitable_max, xend = t_maxA_min, colour = complex_id)) +
-#   geom_segment(aes(y = maxA, yend = currA, x = t_maxA_min, xend = 0, colour = complex_id)) +
-#   geom_segment(aes(y = 0, yend = maxA, x = t_habitable_min, xend = t_maxA_max, colour = complex_id)) +
-#   geom_segment(aes(y = maxA, yend = currA, x = t_maxA_max, xend = 0, colour = complex_id)) +
-#   geom_segment(aes(y = 0, yend = maxA, x = t_habitable_min, xend = t_maxA_min, colour = complex_id)) +
-#   geom_segment(aes(y = maxA, yend = currA, x = t_maxA_min, xend = 0, colour = complex_id)) +
-#   scale_x_reverse()
+write.csv(islTimes, file.path(output.dir, "islTimes.csv"), row.names = FALSE)
+write.csv(islTimes_large, file.path(output.dir, "islTimes_largeIsl.csv"), row.names = FALSE)
+write.csv(islTimes_small, file.path(output.dir, "islTimes_smallIsl.csv"), row.names = FALSE)
