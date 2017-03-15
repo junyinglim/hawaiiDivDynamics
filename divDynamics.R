@@ -374,7 +374,8 @@ testModels <- function(df, t, t1, t2, c, p1, rel_maxK, z, ...){
 	#CR_params <- CR_mod$m$getPars()
 	CR_params <- summary(CR_mod)$coefficients
 	CR_AIC <- AIC(CR_mod)
-	CR_R2 <- 1 - (sum(resid(CR_mod)^2) / TSS)
+	CR_R2 <- 1 - (sum((obs$y - fitted(CR_mod))^2) / TSS)
+	
 
 	DD_mod <- minpack.lm::nlsLM(y ~ DD(d, K, t = t), data = obs,
 					start = list(d = mean_div, K = mean_obs),
@@ -384,7 +385,7 @@ testModels <- function(df, t, t1, t2, c, p1, rel_maxK, z, ...){
 	#DD_AICc <- AICc(DD_mod)
 	DD_AIC <- AIC(DD_mod)
 	#DD_params <- DD_mod$m$getPars()
-	DD_R2 <- 1 - (sum(resid(DD_mod)^2) / TSS)
+	DD_R2 <- 1 - (sum((obs$y - fitted(DD_mod))^2) / TSS)
 	DD_params <- summary(DD_mod)$coefficients
 		
 
@@ -396,7 +397,7 @@ testModels <- function(df, t, t1, t2, c, p1, rel_maxK, z, ...){
 	#DD_var_AICc <- AICc(DD_var_mod)
 	DD_var_AIC <- AIC(DD_var_mod)
 	#DD_var_params <- DD_var_mod$m$getPars()
-	DD_var_R2 <- 1 - (sum(resid(DD_var_mod)^2) / TSS)
+	DD_var_R2 <- 1 - (sum((obs$y - fitted(DD_var_mod))^2) / TSS)
 	DD_var_params <- summary(DD_var_mod)$coefficients
 	
 	DD_ont_mod <- minpack.lm::nlsLM(y ~ DD_ont(r_max_0, K_max, t1 = t1, t2 = t2,
@@ -407,8 +408,7 @@ testModels <- function(df, t, t1, t2, c, p1, rel_maxK, z, ...){
 						control = control, trace = F)
 	#DD_ont_AICc <- AICc(DD_ont_mod)
 	DD_ont_AIC 	<- AIC(DD_ont_mod)
-	DD_ont_R2 <- 1 - (sum(resid(DD_ont_mod)^2) / TSS)
-	
+	DD_ont_R2 <- 1 - (sum((obs$y - fitted(DD_ont_mod))^2) / TSS)
 	DD_ont_params <- summary(DD_ont_mod)$coefficients
 	
 	# Calculate model akaike weights
@@ -432,9 +432,9 @@ testModels <- function(df, t, t1, t2, c, p1, rel_maxK, z, ...){
   	model <- c("Single K", "Varying K", "Varying K + Ontogeny", "Exponential")
   	w <- c(DD_w, DD_var_w, DD_ont_w, NA)
   
-  	res <- data.frame(model, r, r_SE, K, K_SE, AIC, R2, w, z, 
+  	res <- data.frame(model, r, r_SE, K, K_SE, AIC, R2, w, z,
   					c_1  = c[1], c_2 = c[2], c_3 = c[3], c_4 = c[4],
-			        t1_1 = t1[1], t1_2 = t1[2], t1_3 = t1[3], t1_4 = t1[4],
+  					t1_1 = t1[1], t1_2 = t1[2], t1_3 = t1[3], t1_4 = t1[4],
  				    t2_1 = t2[1], t2_2 = t2[2], t2_3 = t2[3], t2_4 = t2[4],
  				    p1_1 = p1[1], p1_2 = p1[2], p1_3 = p1[3], p1_4 = p1[4],
  				    rel_maxK_1 = rel_maxK[1], rel_maxK_2 = rel_maxK[2],
@@ -699,7 +699,7 @@ theme_hawaii <- function(){
           panel.background = element_blank(),
           panel.grid.minor = element_blank(),
           panel.grid.major = element_blank(),
-          panel.margin = unit(2, "lines"), # margin between facet_wrap panels
+          panel.spacing = unit(2, "lines"), # margin between facet_wrap panels
           strip.background = element_blank(), # facet_wrap background
           strip.text.x = element_blank(), # facet_wrap text
           axis.title = element_text(colour = "grey50", size = 15),
@@ -714,7 +714,7 @@ theme_divplot <- function(base_size = 12, base_family = ""){
         panel.background = element_blank(),
         panel.grid.minor = element_blank(),
         panel.grid.major = element_blank(),
-        panel.margin = unit(2, "lines"), # margin between facet_wrap panels
+        panel.spacing = unit(2, "lines"), # margin between facet_wrap panels
         strip.background = element_blank(), # facet_wrap background
 	    strip.text.x = element_blank(), # facet_wrap text
         axis.title = element_text(colour = "grey50", size = 15),
