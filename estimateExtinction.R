@@ -18,7 +18,7 @@ islTimes_large <- read.csv(file.path(output.dir, "islTimes_largeIsl.csv"), strin
 
 #  For Maui Nui for LOBELIADS
 
-simulateDiversity <- function(nSim, t_g, t_d, p, K_max, r_0_max, dt){
+simulateDiversity <- function(nSim, t_g, t_d, p, K_max, r_0_max, dt =0.01){
   # Simulate diversity using the island ontogeny model for one island
   # Args:
   #     nSim = No of simulations
@@ -27,9 +27,6 @@ simulateDiversity <- function(nSim, t_g, t_d, p, K_max, r_0_max, dt){
   #     p = proportion decay, from eq 3. and 8
   #     r_0_max = intrinsic maximum species accumulation rate (immigration + speciation - extinction)
   #     K_max = clade level carrying capacity
-  
-  # Initialize model
-  #nSim = 10; t_g = 1.52; t_d = 1.03; p = 0.424; K_max= 81; r_0_max = 7.36; dt = 0.01 # testing purposes  
   res <- list()
   
   for(i in 1:nSim){
@@ -63,7 +60,7 @@ simulateDiversity <- function(nSim, t_g, t_d, p, K_max, r_0_max, dt){
     
     # Speciation and extinction during the decay phase
     for (t2 in seq(0.01, t_d, by = 0.01)){ # start at 0.01
-      S_aliva <- sum(is.na(T_extinct))
+      S_alive <- sum(is.na(T_extinct))
       p = (r_0_max*(1 - p * (t2/t_d)) - 0.9*(r_0_max/K_max)*S_alive)*dt 
       q = 0.1*(r_0_max/K_max)*S_alive*dt
       
@@ -86,18 +83,23 @@ simulateDiversity <- function(nSim, t_g, t_d, p, K_max, r_0_max, dt){
     res[[i]] <- data.frame(TaxonID, Ancestor, T_origin, T_extinct)
   }
   
-  #nTaxa [i] <-nrow(Taxa)
-  #ExtantTaxaperRun [k] <-S_alive
-  #ExtinctTaxaperRun [k] <-nrow(Taxa)-S_alive
-  
-  # Now want to get crown group age. First eliminate extinct taxa.
-  
-  #TaxaExtant <- subset(Taxa, T_extinct==2.55, select=c(Name:T_extinct))
-  #CrownAge [k] <- TaxaExtant [1,3]
   return(res)
 }
 
+summarizeSimulation <- function(df){
+  S_total <- nrow(df)
+  S_extant <- sum(is.na(df$T_extinct))
+  S_extinct <- S_total - S_extant
+  temp <- subset(df, !is.na(T_extinct)) # subset extinct species
+  avgLifeSpan <- mean(temp$T_extinct - temp$T_origin)
+  temp2 <- subset(df, is.na(T_extinct)) # subset extant species
+  crownAge <- min(temp2$T_origin, na.rm = TRUE)
+  data.frame(S_total, S_extant, S_extinct, avgLifeSpan, crownAge)
+}
 
 
-test <- simulateDiversity(nSim = 10, t_g = 1.52, t_d = 1.03, p = 0.424, K_max= 81, r_0_max = 7.36, dt = 0.01)
+test <- simulateDiversity(nSim = 10, t_g = 1.52, t_d = 1.03, p = 0.424, K_max= 81, r_0_max = 7.36, dt = 0.0001)
 
+summarize <- lapply(test, summarizeSimulation)
+res <- do.call("rbind", summarize)
+res
