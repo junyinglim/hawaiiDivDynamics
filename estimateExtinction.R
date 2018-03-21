@@ -59,47 +59,77 @@ simulateDiversity <- function(nSim, t_g, t_d, p, K_max, r_0_max, dt =0.01){
     }
     
     # Speciation and extinction during the decay phase
-    for (t2 in seq(0.01, t_d, by = 0.01)){ # start at 0.01
-      S_alive <- sum(is.na(T_extinct))
-      p = (r_0_max*(1 - p * (t2/t_d)) - 0.9*(r_0_max/K_max)*S_alive)*dt 
-      q = 0.1*(r_0_max/K_max)*S_alive*dt
-      
-      for (m in 1:length(TaxonID)){ # For every taxon, extant or extinct.
-        if(is.na(T_extinct[m])){  # Thus, extinct taxa are ignored.
-          if (q > runif(1, 0, 1)){    # If true, taxon become extinct. 
-            T_extinct[m] <- t_g + t2    # Assign its extinction time.
-          }       
-          
-          if (p > runif(1, 0, 1)){    # If true taxon speciates.
-            S_total <- length(TaxonID)+1
-            TaxonID[S_total] <- S_total      # New taxon given unique number as name.
-            Ancestor[S_total] <- m         # The name of its ancestor.
-            T_origin[S_total] <- t_g + t2    # Its time of origin
-            T_extinct[S_total] <- NA                # Increase count of extant taxa.
+    if(t_d > 0){
+      for (t2 in seq(0.01, t_d, by = 0.01)){ # start at 0.01
+        S_alive <- sum(is.na(T_extinct))
+        p = (r_0_max*(1 - p * (t2/t_d)) - 0.9*(r_0_max/K_max)*S_alive)*dt 
+        q = 0.1*(r_0_max/K_max)*S_alive*dt
+        
+        for (m in 1:length(TaxonID)){ # For every taxon, extant or extinct.
+          if(is.na(T_extinct[m])){  # Thus, extinct taxa are ignored.
+            if (q > runif(1, 0, 1)){    # If true, taxon become extinct. 
+              T_extinct[m] <- t_g + t2    # Assign its extinction time.
+            }       
+            
+            if (p > runif(1, 0, 1)){    # If true taxon speciates.
+              S_total <- length(TaxonID)+1
+              TaxonID[S_total] <- S_total      # New taxon given unique number as name.
+              Ancestor[S_total] <- m         # The name of its ancestor.
+              T_origin[S_total] <- t_g + t2    # Its time of origin
+              T_extinct[S_total] <- NA                # Increase count of extant taxa.
+            }
           }
         }
       }
     }
     res[[i]] <- data.frame(TaxonID, Ancestor, T_origin, T_extinct)
   }
-  
   return(res)
 }
 
-summarizeSimulation <- function(df){
+simStats <- function(df){
+  # Takes the species tables generated and gives basic summary statistics for each stochastic run
   S_total <- nrow(df)
   S_extant <- sum(is.na(df$T_extinct))
   S_extinct <- S_total - S_extant
+  propExtinct <- S_extinct / S_total
   temp <- subset(df, !is.na(T_extinct)) # subset extinct species
   avgLifeSpan <- mean(temp$T_extinct - temp$T_origin)
   temp2 <- subset(df, is.na(T_extinct)) # subset extant species
-  crownAge <- min(temp2$T_origin, na.rm = TRUE)
-  data.frame(S_total, S_extant, S_extinct, avgLifeSpan, crownAge)
+  crownAge <- min(temp2$T_origin, na.rm = TRUE) # WRONG need to fix
+  data.frame(S_total, S_extant, S_extinct, propExtinct, avgLifeSpan, crownAge)
 }
+
+summarizeSummary <- function(df){
+  # Takes the summary statistics and generates the mean species diversity etc
+  meanS_total <- mean(df$S_total)
+  meanS_extinct <- mean(df$S_extinct)
+  meanProp_extinct <- mean(df$propExtinct)
+}
+
+simulateDiversityAllIslands <- function(islTimes, r_0_max, K_max, p, nSim = 100){
+  res <- list()
+  for(i in 1:4){
+    temp <- simulateDiversity(t_g = islTimes$t1_mean[i],
+                              t_d = islTimes$t2_mean[i],
+                              r_0_max = r_0_max,
+                              K_max = K_max,
+                              p = p,
+                              nSim)
+    res[i] <- do.call("rbind", lapply(temp, simStats))
+  }
+  resTotal <- do.call("rbind", lapply(res, summarizeSummary))
+  return(resTotal)
+}
+
+
 
 
 test <- simulateDiversity(nSim = 10, t_g = 1.52, t_d = 1.03, p = 0.424, K_max= 81, r_0_max = 7.36, dt = 0.0001)
 
-summarize <- lapply(test, summarizeSimulation)
-res <- do.call("rbind", summarize)
+summarize <- 
+res <- do.call("rbind", lapply(test, simStats))
 res
+
+test2 <- simulateDiversityAllIslands(islTimes = islTimes, nSim = 1, p = 0.424, K_max = 81, r_0_max = 7.36)
+test2
